@@ -1,51 +1,104 @@
-import React, { useState } from "react";
-import Sidebar from "../components/SideBar";
-import ChatbotWidget from "../components/ChatbotWidget";
-import ContactFallbackForm from "../components/ContactFallbackForm";
+import React, { useState, useRef, useEffect } from "react";
+import axios from "../api/aiApi";
 
 export default function TryNow() {
-  const [showForm, setShowForm] = useState(false);
+  const [url, setUrl] = useState("");
+  const [question, setQuestion] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const bottomRef = useRef(null);
+
+  const scrollToBottom = () => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (!url || !question) {
+      setError("Please enter both a website URL and a question.");
+      return;
+    }
+
+    const userMsg = { type: "user", text: question };
+    setMessages((prev) => [...prev, userMsg]);
+    setLoading(true);
+
+    console.log("📤 Sending request to AI:", { url, question });
+
+    try {
+      const res = await axios.post("/ai/try-now", { url, question });
+      console.log("✅ Received AI response:", res.data);
+      const botMsg = { type: "bot", text: res.data.response };
+      setMessages((prev) => [...prev, botMsg]);
+    } catch (err) {
+      console.error("❌ Error in AI response:", err.message);
+      setMessages((prev) => [
+        ...prev,
+        { type: "bot", text: "⚠️ Something went wrong. Please try again." },
+      ]);
+    } finally {
+      setLoading(false);
+      setQuestion("");
+    }
+  };
 
   return (
-    <div className="flex">
-      {/* Sidebar Navigation */}
-      <Sidebar />
-
-      {/* Main Page Content */}
-      <div className="ml-56 w-full p-10 min-h-screen bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] text-white relative">
-        <h1 className="text-4xl font-bold text-[#A8DCAB] mb-4">Try Our AI Chatbot</h1>
-        <p className="text-gray-300 max-w-2xl mb-6">
-          Interact with our smart assistant just like your customers would.
-          Ask it anything about our product — or enter your own website to test real-world behavior.
+    <div className="bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] min-h-screen text-white p-8 flex flex-col items-center">
+      <div className="w-full max-w-2xl">
+        <h1 className="text-4xl font-bold text-[#A8DCAB] mb-4 text-center">💬 Try AutoSupport AI</h1>
+        <p className="text-center text-gray-400 mb-8">
+          Paste a website URL and ask a question to get AI-generated answers based on real site content.
         </p>
 
-        {/* 🧪 Future: URL Input Demo */}
-        <div className="mb-6">
-          <label htmlFor="url" className="block text-sm text-[#A8DCAB] font-semibold mb-2">
-            Paste a website URL (demo feature coming soon)
-          </label>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
-            id="url"
             placeholder="https://example.com"
-            disabled
-            className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/20 focus:outline-none"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            className="w-full p-3 rounded bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-[#519755]"
           />
+          <input
+            type="text"
+            placeholder="What would you like to know?"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            className="w-full p-3 rounded bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-[#519755]"
+          />
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <button
+            type="submit"
+            className="w-full bg-[#DBAAA7] hover:bg-[#c98686] text-black font-bold py-3 rounded transition-all"
+          >
+            Ask AI
+          </button>
+        </form>
+
+        <div className="mt-10 flex flex-col gap-4">
+          {messages.map((msg, idx) => (
+            <div
+              key={idx}
+              className={`max-w-[75%] px-4 py-3 rounded-xl text-sm whitespace-pre-wrap ${
+                msg.type === "user"
+                  ? "bg-[#A8DCAB] text-black self-end ml-auto"
+                  : "bg-white/10 text-white self-start"
+              }`}
+            >
+              {msg.text}
+            </div>
+          ))}
+
+          {loading && (
+            <div className="text-sm text-gray-400 animate-pulse self-start">🤖 Responding...</div>
+          )}
+          <div ref={bottomRef} />
         </div>
-
-        {/* ⛑️ Fallback Form (shown if chatbot can’t help) */}
-        {showForm && (
-          <div className="bg-white/10 p-6 rounded-lg border border-white/20 max-w-lg mt-10">
-            <h3 className="text-[#DBAAA7] text-xl font-semibold mb-2">Didn't find what you needed?</h3>
-            <p className="text-sm text-gray-300 mb-4">
-              Fill out the form and a support agent will get back to you.
-            </p>
-            <ContactFallbackForm />
-          </div>
-        )}
-
-        {/* 🤖 Floating Chatbot Widget (bottom-right) */}
-        <ChatbotWidget onFallback={() => setShowForm(true)} />
       </div>
     </div>
   );

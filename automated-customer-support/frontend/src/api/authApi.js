@@ -1,10 +1,9 @@
 import axios from "axios";
 
 const authApi = axios.create({
-  baseURL: "http://localhost:5000/api", 
+  baseURL: "http://localhost:8080/api/auth", // updated to use API Gateway
 });
 
-// ✅ Automatically attach token if it exists
 authApi.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -13,9 +12,7 @@ authApi.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 export default authApi;
