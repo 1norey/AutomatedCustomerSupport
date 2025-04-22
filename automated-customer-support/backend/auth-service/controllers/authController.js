@@ -41,13 +41,11 @@ exports.login = async (req, res) => {
   const { error } = schema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
 
-  const { email, password } = req.body;
-
   try {
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ where: { email: req.body.email } });
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-    const match = await bcrypt.compare(password, user.password);
+    const match = await bcrypt.compare(req.body.password, user.password);
     if (!match) return res.status(400).json({ message: "Invalid credentials" });
 
     const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1d" });

@@ -1,6 +1,7 @@
+// src/pages/Login.js
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import authApi from "../api/authApi"; 
+import authApi from "../api/authApi";
 
 export default function Login() {
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -16,13 +17,12 @@ export default function Login() {
     setError("");
 
     try {
-      const res = await authApi.post("/auth/login", formData);
+      const res = await authApi.post("/login", formData); // ✅ Corrected route
 
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
 
       const role = res.data.user?.role;
-
       if (role === "admin" || role === "agent") {
         navigate("/dashboard");
       } else {
