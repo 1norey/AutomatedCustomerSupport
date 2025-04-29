@@ -1,62 +1,76 @@
-// controllers/userController.js
 const User = require("../models/User");
+const bcrypt = require("bcrypt");
 
-
+// GET all users (admin only)
 exports.getUsers = async (req, res) => {
   try {
-    // ✅ Only allow admins
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
-    const users = await User.findAll({
-      attributes: ["id", "email", "role"], // cleaner result
-    });
+    const users = await User.findAll({ where: { isActive: true } });
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: "Error fetching users", error: err.message });
   }
 };
 
+// PUT update role (admin only)
 exports.updateUserRole = async (req, res) => {
-    try {
-      if (req.user.role !== "admin") {
-        return res.status(403).json({ message: "Access denied" });
-      }
-  
-      const { role, email } = req.body;
-  
-      if (role && !["admin", "agent", "client"].includes(role)) {
-        return res.status(400).json({ message: "Invalid role" });
-      }
-  
-      const updateData = {};
-      if (role) updateData.role = role;
-      if (email) updateData.email = email;
-  
-      await User.update(updateData, { where: { id: req.params.id } });
-  
-      res.json({ message: "User updated" });
-    } catch (err) {
-      res.status(500).json({ message: "Failed to update user", error: err.message });
-    }
-  };
-  
+  const { id } = req.params;
+  const { role } = req.body;
 
-exports.deleteUser = async (req, res) => {
+  if (!["client", "agent", "admin"].includes(role)) {
+    return res.status(400).json({ message: "Invalid role" });
+  }
+
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ message: "Access denied" });
+    const user = await User.findByPk(id);
+    if (!user || !user.isActive) {
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // ✅ Optional: prevent admin from deleting their own account
-    if (req.user.id === req.params.id) {
-      return res.status(400).json({ message: "You cannot delete your own account." });
-    }
+    user.role = role;
+    await user.save();
 
-    await User.destroy({ where: { id: req.params.id } });
-    res.json({ message: "User deleted" });
+    res.json({ message: "User role updated", user });
   } catch (err) {
-    res.status(500).json({ message: "Failed to delete user", error: err.message });
+    res.status(500).json({ message: "Error updating role", error: err.message });
+  }
+};
+
+// DELETE soft delete (admin only)
+exports.deleteUser = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const user = await User.findByPk(id);
+    if (!user || !user.isActive) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.isActive = false;
+    await user.save();
+
+    res.json({ message: "User soft-deleted" });
+  } catch (err) {
+    res.status(500).json({ message: "Error deleting user", error: err.message });
+  }
+};
+
+// PUT self-update (only email/password)
+exports.updateSelf = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user || !user.isActive) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (email) user.email = email;
+    if (password) user.password = await bcrypt.hash(password, 10);
+
+    await user.save();
+
+    res.json({ message: "Profile updated", user: { id: user.id, email: user.email, role: user.role } });
+  } catch (err) {
+    res.status(500).json({ message: "Error updating profile", error: err.message });
   }
 };
