@@ -1,0 +1,40 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install and Cache Dependencies
+        run: |
+          cd backend/auth-service && npm ci
+          cd ../ticket-service && npm ci
+          cd ../log-service && npm ci
+          cd ../api-gateway && npm ci
+
+      - name: Lint Code (optional)
+        run: echo "Linting skipped (no config yet)"
+
+      - name: Run Unit Tests (optional)
+        run: echo "Tests skipped (no test setup yet)"
+
+      - name: Build Docker Images
+        run: |
+          docker build -t auth-service ./backend/auth-service
+          docker build -t ticket-service ./backend/ticket-service
+          docker build -t log-service ./backend/log-service
+          docker build -t api-gateway ./backend/api-gateway

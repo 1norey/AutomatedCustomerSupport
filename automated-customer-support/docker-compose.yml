@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:14
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: authdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  mongo:
+    image: mongo:5
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  auth-service:
+    build: ./backend/auth-service
+    environment:
+      PORT: 5000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: authdb
+      DB_USER: user
+      DB_PASS: pass
+      JWT_SECRET: your_jwt_secret
+      JWT_REFRESH_SECRET: your_refresh_secret
+    depends_on:
+      - postgres
+    ports:
+      - "5000:5000"
+
+  ticket-service:
+    build: ./backend/ticket-service
+    environment:
+      PORT: 5001
+      MONGO_URI: mongodb://mongo:27017/ticketdb
+    depends_on:
+      - mongo
+      - rabbitmq
+    ports:
+      - "5001:5001"
+
+  log-service:
+    build: ./backend/log-service
+    depends_on:
+      - rabbitmq
+
+  api-gateway:
+    build: ./backend/api-gateway
+    environment:
+      GATEWAY_PORT: 8080
+    depends_on:
+      - auth-service
+      - ticket-service
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
+  mongodata:

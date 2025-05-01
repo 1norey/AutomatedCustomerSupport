@@ -1,39 +1,52 @@
-// ticket-service/index.js
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const helmet = require("helmet");
+const mongoSanitize = require("express-mongo-sanitize");
 const path = require("path");
 const swaggerUi = require("swagger-ui-express");
 const YAML = require("yamljs");
 
 const ticketRoutes = require("./routes/tickets");
 const aiRoutes = require("./routes/ai");
-
-console.log("🧠 AI routes loaded");
+const { connectRabbitMQ } = require("./utils/rabbitmq");
 
 const app = express();
 
-// Load Swagger YAML
+// ✅ Load Swagger
 const swaggerDocument = YAML.load(path.join(__dirname, "swagger.yaml"));
 
-// Middleware
+// ✅ Security & Middleware
+app.use(helmet());
+app.use(mongoSanitize());
 app.use(cors());
 app.use(express.json());
 
-// Routes
+app.use((req, res, next) => {
+  console.log("📥 Ticket Service received:", req.method, req.originalUrl);
+  next();
+});
+
+// ✅ Routes
 app.use("/api/tickets", ticketRoutes);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use("/", aiRoutes);
 
-// MongoDB Connection
+// ✅ Health Check
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+// ✅ Start App
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => {
+  .then(async () => {
     console.log("✅ Connected to MongoDB");
-    app.listen(process.env.PORT || 5001, () => {
-      console.log(`🎟️ Ticket Service running on port ${process.env.PORT || 5001}`);
-      console.log(`📚 Swagger Docs available at http://localhost:${process.env.PORT || 5001}/api-docs`);
+    await connectRabbitMQ();
+    const PORT = process.env.PORT || 5001;
+    app.listen(PORT, () => {
+      console.log(`🎟️ Ticket Service running at http://localhost:${PORT}`);
     });
   })
   .catch((err) => {
