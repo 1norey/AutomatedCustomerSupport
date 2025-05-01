@@ -1,7 +1,10 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const cookieParser = require("cookie-parser"); // ✅ Needed for Refresh Tokens
+const cookieParser = require("cookie-parser");
+const helmet = require("helmet");
+const mongoSanitize = require("express-mongo-sanitize");
+
 const sequelize = require("./config/db");
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/user");
@@ -11,29 +14,36 @@ const YAML = require("yamljs");
 const swaggerDocument = YAML.load("./docs/swagger.yaml");
 const app = express();
 
-// ✅ Middleware
+// ✅ Security & Middleware
+app.use(helmet());
+app.use(mongoSanitize());
 app.use(cors({
-  origin: "http://localhost:3000", // or your frontend URL
-  credentials: true,               // ✅ Allow credentials (cookies)
+  origin: "http://localhost:3000",
+  credentials: true,
 }));
 app.use(express.json());
-app.use(cookieParser());           // ✅ Parse HTTPOnly cookies
+app.use(cookieParser());
 
 app.use((req, res, next) => {
   console.log("📥 Auth Service received:", req.method, req.originalUrl);
   next();
 });
 
-// ✅ Routes (expose at root to match gateway pathRewrite)
-app.use("/", authRoutes);            // 👈 changed from "/api/auth"
+// ✅ Routes
+app.use("/", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-// ✅ Database connection
+// ✅ Health Check
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+// ✅ PostgreSQL Connection
 sequelize.authenticate()
   .then(() => {
     console.log("✅ Connected to PostgreSQL");
-    return sequelize.sync({ force: true });
+    return sequelize.sync();
   })
   .then(() => {
     console.log("🛠️ Synced models with DB");
@@ -46,5 +56,5 @@ sequelize.authenticate()
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Auth Service running on http://localhost:${PORT}`);
-  console.log(`📚 Swagger Docs available at http://localhost:${PORT}/api-docs`);
+  console.log(`📚 Swagger Docs at http://localhost:${PORT}/api-docs`);
 });
