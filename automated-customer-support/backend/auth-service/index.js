@@ -17,15 +17,15 @@ app.use(cors({
   credentials: true,               // ✅ Allow credentials (cookies)
 }));
 app.use(express.json());
-app.use(cookieParser());            // ✅ Parse HTTPOnly cookies
+app.use(cookieParser());           // ✅ Parse HTTPOnly cookies
 
 app.use((req, res, next) => {
   console.log("📥 Auth Service received:", req.method, req.originalUrl);
   next();
 });
 
-// ✅ Routes
-app.use("/api/auth", authRoutes);     // ✅ Corrected to /api/auth (important!)
+// ✅ Routes (expose at root to match gateway pathRewrite)
+app.use("/", authRoutes);            // 👈 changed from "/api/auth"
 app.use("/api/users", userRoutes);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
@@ -33,7 +33,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 sequelize.authenticate()
   .then(() => {
     console.log("✅ Connected to PostgreSQL");
-    return sequelize.sync();
+    return sequelize.sync({ force: true });
   })
   .then(() => {
     console.log("🛠️ Synced models with DB");
