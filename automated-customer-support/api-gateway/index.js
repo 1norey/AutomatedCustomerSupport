@@ -8,7 +8,7 @@ const axios = require("axios");
 
 const app = express();
 
-// ✅ Middleware
+// Middleware
 app.use(cors());
 app.use(morgan("dev"));
 app.use(rateLimit({
@@ -22,34 +22,31 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ Proxies
+// Proxy routes
 app.use("/api/auth", createProxyMiddleware({
-  target: "http://localhost:5000",
-  changeOrigin: true,
-  pathRewrite: { "^/api/auth": "" },
+  target: "http://auth-service:5000",
+  changeOrigin: true
 }));
 
 app.use("/api/tickets", createProxyMiddleware({
-  target: "http://localhost:5001",
+  target: "http://ticket-service:5001",
   changeOrigin: true,
 }));
 
 app.use("/api/ai", createProxyMiddleware({
-  target: "http://localhost:5002",
+  target: "http://ai-service:5002",
   changeOrigin: true,
-  pathRewrite: { "^/api/ai": "" },
 }));
 
-// ✅ Microservice health aggregator
+// Health Check Aggregator
 app.get("/services-status", async (req, res) => {
   const services = {
-    "auth-service": "http://localhost:5000/health",
-    "ticket-service": "http://localhost:5001/health",
-    "ai-service": "http://localhost:5002/health"
+    "auth-service": "http://auth-service:5000/health",
+    "ticket-service": "http://ticket-service:5001/health",
+    "ai-service": "http://ai-service:5002/health"
   };
 
   const statusReport = {};
-
   await Promise.all(
     Object.entries(services).map(async ([name, url]) => {
       try {
@@ -64,8 +61,18 @@ app.get("/services-status", async (req, res) => {
   res.status(200).json(statusReport);
 });
 
-// ✅ Start Gateway
+// Optional Test
+app.get("/test-auth", async (req, res) => {
+  try {
+    const result = await axios.get("http://auth-service:5000/health");
+    res.json(result.data);
+  } catch (err) {
+    res.status(500).json({ message: "Auth service not reachable", error: err.message });
+  }
+});
+
+// Start server
 const PORT = process.env.GATEWAY_PORT || 8080;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`🧠 API Gateway running at http://localhost:${PORT}`);
 });
