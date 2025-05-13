@@ -1,0 +1,35 @@
+HTTP/1.1 404 Not Found
+X-Powered-By: Express
+access-control-allow-origin: http://localhost:3000
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 93
+date: Tue, 13 May 2025 20:50:10 GMT
+X-RateLimit-Reset: 1747169749
+content-security-policy: default-src 'none'
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+origin-agent-cluster: ?1
+referrer-policy: no-referrer
+strict-transport-security: max-age=31536000; includeSubDomains
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-xss-protection: 0
+vary: Origin
+access-control-allow-credentials: true
+content-type: text/html; charset=utf-8
+content-length: 146
+connection: close
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot POST /signup</pre>
+</body>
+</html>

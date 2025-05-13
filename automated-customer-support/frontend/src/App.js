@@ -9,6 +9,12 @@ import Landing from "./pages/Landing";
 import TryNow from "./pages/TryNow";
 import ProtectedRoute from "./components/ProtectedRoute";
 
+// Updated import paths from components folder
+import VerifyEmail from "./components/VerifyEmail";
+import ForgotPassword from "./components/ForgotPassword";
+import ResetPassword from "./components/ResetPassword";
+import CheckEmailNotice from "./components/CheckEmailNotice";
+
 function App() {
   return (
     <Router>
@@ -20,6 +26,12 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/try" element={<TryNow />} />
+
+        {/* Auth Flow */}
+        <Route path="/verify-email/:token" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/check-email" element={<CheckEmailNotice />} />
 
         {/* Protected Dashboard */}
         <Route

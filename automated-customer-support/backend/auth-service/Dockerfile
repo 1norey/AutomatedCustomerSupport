@@ -1,18 +1,18 @@
-# Use official Node image
+# Use official Node.js image
 FROM node:18
 
-# Set the working directory in the container
+# Set working directory inside the container
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Copy only package files and install dependencies
 COPY package*.json ./
 RUN npm install
 
-# Copy the rest of the app code
+# Copy rest of the source code
 COPY . .
 
-# Expose port 5000 (auth-service runs on this port)
+# Expose the application's port
 EXPOSE 5000
 
-# Run the app
+# Start the application
 CMD ["node", "index.js"]

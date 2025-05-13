@@ -13,4 +13,9 @@ authApi.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+export const signup = (data) => authApi.post("/signup", data);
+export const verifyEmail = (token) => authApi.get(`/verify-email/${token}`);
+export const forgotPassword = (email) => authApi.post("/forgot-password", { email });
+export const resetPassword = (token, password) => authApi.post(`/reset-password/${token}`, { password });
+
 export default authApi;
