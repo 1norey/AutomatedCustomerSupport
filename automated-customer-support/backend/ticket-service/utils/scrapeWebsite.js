@@ -1,45 +1,104 @@
-
 const axios = require("axios");
 const cheerio = require("cheerio");
+const { URL } = require("url");
 
-// ✅ Function to validate the URL and ensure it's HTTPS
+// Allowed domains (whitelist for safety - optional)
+const ALLOWED_DOMAINS = new Set([
+  "example.com",
+  "trustedsite.org"
+]);
+
+// Blocked domains (blacklist)
+const BLOCKED_DOMAINS = new Set([
+  "localhost",
+  "127.0.0.1",
+  "internal.site"
+]);
+
+// ✅ Enhanced URL validation
 const isAllowedUrl = (url) => {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:"; // Only allow HTTPS URLs
+    
+    // Protocol check
+    if (parsed.protocol !== "https:") return false;
+    
+    // Domain checks
+    const domain = parsed.hostname.replace("www.", "");
+    if (BLOCKED_DOMAINS.has(domain)) return false;
+    
+    // Optional: Only allow specific domains
+    // if (ALLOWED_DOMAINS.size > 0 && !ALLOWED_DOMAINS.has(domain)) return false;
+    
+    return true;
   } catch {
     return false;
   }
 };
 
-// ✅ Scrape function to extract visible text content from common HTML tags
+// ✅ Robust scraping with sanitization
 const scrapeWebsite = async (url) => {
+  // Validate URL
   if (!isAllowedUrl(url)) {
-    console.warn("❌ Disallowed or invalid URL:", url);
-    return null;
+    console.warn("❌ Blocked URL:", url);
+    throw new Error("URL not allowed");
   }
 
   try {
+    // Fetch with timeout and custom headers
     const { data } = await axios.get(url, {
-      timeout: 10000, // increased timeout for slower sites
+      timeout: 15000, // 15s timeout
       headers: {
-        "User-Agent": "Mozilla/5.0 (AutoSupportAI-Bot)",
+        "User-Agent": "Mozilla/5.0 (compatible; AutoSupportAI/1.0; +https://yoursite.com/bot)",
+        "Accept": "text/html",
+        "Accept-Language": "en-US,en"
       },
+      maxRedirects: 2,
+      validateStatus: (status) => status >= 200 && status < 400
     });
 
-    const $ = cheerio.load(data);
+    // Sanitize and parse
+    const $ = cheerio.load(data, {
+      decodeEntities: true,
+      xmlMode: false
+    });
 
+    // Remove unwanted elements
+    $("script, style, iframe, noscript").remove();
+
+    // Extract and clean text
     let content = "";
-    $("h1, h2, h3, h4, p, li, section, article").each((_, el) => {
-      content += $(el).text() + "\n";
+    $("h1, h2, h3, h4, p, li, article").each((_, el) => {
+      const text = $(el).text().trim();
+      if (text) content += text + "\n";
     });
 
-    const cleaned = content.replace(/\s+/g, " ").trim().substring(0, 4000);
-    return cleaned;
+    // Truncate and clean
+    return content
+      .replace(/\s+/g, " ")
+      .replace(/[^\w\s.,!?\-]/g, "") // Basic sanitization
+      .substring(0, 8000); // ~2k tokens
   } catch (err) {
-    console.error("❌ Scrape error:", err.message);
-    return null;
+    console.error("❌ Scrape failed:", err.message);
+    throw new Error(`Could not fetch content: ${err.message}`);
   }
 };
 
-module.exports = scrapeWebsite;
+// Cache layer (optional)
+const scrapeCache = new Map();
+const CACHE_TTL = 1000 * 60 * 30; // 30 minutes
+
+module.exports = async (url) => {
+  // Cache check
+  if (scrapeCache.has(url)) {
+    return scrapeCache.get(url);
+  }
+
+  const content = await scrapeWebsite(url);
+  
+  // Cache result
+  scrapeCache.set(url, content);
+  setTimeout(() => scrapeCache.delete(url), CACHE_TTL);
+  
+  return content;
+};

@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 
 // GET all users (admin only)
 exports.getUsers = async (req, res) => {
+  console.log("🔍 getUsers controller hit");
   try {
     const users = await User.findAll({ where: { isActive: true } });
     res.json(users);

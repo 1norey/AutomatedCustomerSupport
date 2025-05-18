@@ -1,7 +1,7 @@
 import React from "react";
 import Sidebar from "../components/SideBar";
 import TicketManager from "../components/TicketManager";
-import UserManager from "../components/UserManager"; // We’ll create this next
+import UserManager from "../components/UserManager"; 
 
 export default function Dashboard() {
   const role = JSON.parse(localStorage.getItem("user"))?.role || "user";

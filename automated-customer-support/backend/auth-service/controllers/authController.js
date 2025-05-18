@@ -47,7 +47,7 @@ exports.signup = async (req, res) => {
       verificationToken,
     });
 
-    // await sendVerificationEmail(email, verificationToken); // Optional
+    await sendVerificationEmail(email, verificationToken); 
 
     console.log("✅ Signup success for:", email);
     return res.status(201).json({

@@ -1,54 +1,73 @@
 require("dotenv").config();
 const express = require("express");
-const cors = require("cors");
 const mongoose = require("mongoose");
+const redis = require("redis");
 const helmet = require("helmet");
-const mongoSanitize = require("express-mongo-sanitize");
-const path = require("path");
-const swaggerUi = require("swagger-ui-express");
-const YAML = require("yamljs");
-
-const ticketRoutes = require("./routes/tickets");
-const aiRoutes = require("./routes/ai");
-const { connectRabbitMQ } = require("./utils/rabbitmq");
+const cors = require("cors");
 
 const app = express();
 
-// ✅ Load Swagger
-const swaggerDocument = YAML.load(path.join(__dirname, "swagger.yaml"));
+// Redis Client (Docker-optimized)
+const redisClient = redis.createClient({
+  url: process.env.REDIS_URL,
+  socket: {
+    reconnectStrategy: (retries) => Math.min(retries * 200, 5000)
+  }
+});
 
-// ✅ Security & Middleware
+redisClient.on("error", (err) =>
+  console.error(`[Redis Error] ${err.code === "ECONNREFUSED" ? "Connection refused" : err.message}`)
+);
+
+// Middleware
 app.use(helmet());
-app.use(mongoSanitize());
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
-app.use((req, res, next) => {
-  console.log("📥 Ticket Service received:", req.method, req.originalUrl);
-  next();
-});
+// Database and Redis Connection
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("[Ticket-Service] ✅ MongoDB connected");
+    
+    await redisClient.connect();
+    console.log("[Ticket-Service] ✅ Redis connected");
+    
+    // Initialize quota with 24h expiry
+    await redisClient.set(
+      "openai:quota_remaining",
+      process.env.FREE_QUOTA_LIMIT,
+      { EX: 86400 }
+    );
+    console.log("[Ticket-Service] ✅ Quota initialized:", process.env.FREE_QUOTA_LIMIT);
 
-// ✅ Routes
-app.use("/api/tickets", ticketRoutes);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-app.use("/", aiRoutes);
+  } catch (err) {
+    console.error("[Ticket-Service] ❌ DB connection failed:", err.message);
+    process.exit(1);
+  }
+};
 
-// ✅ Health Check
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
-});
+// Start the app only after DB and Redis are connected
+connectDB().then(() => {
+  // Register routes
+  app.use("/api/ai", require("./routes/ai")(redisClient));
+  app.use("/api/tickets", require("./routes/tickets"));
 
-// ✅ Start App
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(async () => {
-    console.log("✅ Connected to MongoDB");
-    await connectRabbitMQ();
-    const PORT = process.env.PORT || 5001;
-    app.listen(PORT, () => {
-      console.log(`🎟️ Ticket Service running at http://localhost:${PORT}`);
+  // Health Check route
+  app.get("/health", async (req, res) => {
+    res.json({
+      status: "ok",
+      redis: await redisClient.ping().then(() => "up").catch(() => "down"),
+      mongo: mongoose.connection.readyState === 1 ? "up" : "down"
     });
-  })
-  .catch((err) => {
-    console.error("❌ MongoDB connection failed:", err);
   });
+
+  // Start server
+  const PORT = process.env.PORT || 5001;
+  app.listen(PORT, () => {
+    console.log(`[Ticket-Service] 🚀 Running on port ${PORT}`);
+    console.log(`[Ticket-Service] 🤖 OpenAI quota: ${process.env.FREE_QUOTA_LIMIT} tokens`);
+  });
+});
+
+module.exports = app;

@@ -1,9 +1,8 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:14
-    restart: always
+    container_name: postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -12,79 +11,172 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
     networks:
       - backend
 
   mongo:
     image: mongo:5
-    restart: always
+    container_name: mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: tickets
     ports:
       - "27017:27017"
     volumes:
       - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - backend
 
   rabbitmq:
     image: rabbitmq:3-management
-    restart: always
+    container_name: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
     ports:
       - "5672:5672"
       - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
     networks:
       - backend
 
   auth-service:
-    build: ./backend/auth-service
+    build:
+      context: ./backend/auth-service
+      args:
+        NODE_ENV: development
+    container_name: auth-service
     env_file:
+      - .env
       - ./backend/auth-service/.env
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "5000:5000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   ticket-service:
-    build: ./backend/ticket-service
+    build:
+      context: ./backend/ticket-service
+      args:
+        NODE_ENV: development
+    container_name: ticket-service
+    env_file:
+      - .env
+      - ./backend/ticket-service/.env
     environment:
-      PORT: 5001
-      MONGO_URI: mongodb://mongo:27017/ticketdb
+      - PORT=5001
+      - MONGO_URI=mongodb://mongo:27017/tickets?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FREE_QUOTA_LIMIT=50000
     depends_on:
-      - mongo
-      - rabbitmq
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     ports:
       - "5001:5001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5001/health || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
   log-service:
     build: ./backend/log-service
+    container_name: log-service
     environment:
       RABBITMQ_HOST: rabbitmq
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
     networks:
       - backend
 
   api-gateway:
     build: ./api-gateway
+    container_name: api-gateway
     environment:
-      GATEWAY_PORT: 8080
+      - GATEWAY_PORT=8080
+      - AUTH_SERVICE_URL=http://auth-service:5000
+      - TICKET_SERVICE_URL=http://ticket-service:5001
     depends_on:
-      - auth-service
-      - ticket-service
+      auth-service:
+        condition: service_healthy
+      ticket-service:
+        condition: service_healthy
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
     networks:
       - backend
 
 volumes:
   pgdata:
+    driver: local
   mongodata:
+    driver: local
+  redis_data:
+    driver: local
 
 networks:
   backend:
+    driver: bridge

@@ -22,28 +22,57 @@ app.use((req, res, next) => {
   next();
 });
 
-// Proxy routes
+app.use((req, res, next) => {
+  console.log("🌐 Gateway received:", req.method, req.originalUrl);
+  next();
+});
+
 app.use("/api/auth", createProxyMiddleware({
   target: "http://auth-service:5000",
-  changeOrigin: true
+  changeOrigin: true,
+  pathRewrite: { "^/api/auth": "" },
+  // Debug log:
+  onProxyReq: (proxyReq, req, res) => {
+    console.log("➡️ Forwarding to:", "http://auth-service:5000" + req.originalUrl.replace(/^\/api\/auth/, ''));
+  }
 }));
 
+
+
+ //Proxy everything under /api/auth directly to auth-service
+app.use("/api/ai", createProxyMiddleware({
+  target: "http://ticket-service:5001",
+  changeOrigin: true,
+  pathRewrite: (path, req) => {
+    // Print exactly what will be proxied
+    const rewritten = "/api/ai" + path.replace(/^\/api\/ai/, "");
+    console.log("Proxy forwarding path:", rewritten);
+    return rewritten;
+  },
+  proxyTimeout: 30000,
+  onError: (err, req, res) => {
+    console.error("AI Service Proxy Error:", err);
+    res.status(503).json({ message: "AI service unavailable" });
+  }
+}));
+
+
+
+
+
+
+// Tickets
 app.use("/api/tickets", createProxyMiddleware({
   target: "http://ticket-service:5001",
   changeOrigin: true,
 }));
 
-app.use("/api/ai", createProxyMiddleware({
-  target: "http://ai-service:5002",
-  changeOrigin: true,
-}));
 
-// Health Check Aggregator
+// Health aggregator
 app.get("/services-status", async (req, res) => {
   const services = {
     "auth-service": "http://auth-service:5000/health",
-    "ticket-service": "http://ticket-service:5001/health",
-    "ai-service": "http://ai-service:5002/health"
+    "ticket-service": "http://ticket-service:5001/health"
   };
 
   const statusReport = {};
@@ -61,15 +90,11 @@ app.get("/services-status", async (req, res) => {
   res.status(200).json(statusReport);
 });
 
-// Optional Test
-app.get("/test-auth", async (req, res) => {
-  try {
-    const result = await axios.get("http://auth-service:5000/health");
-    res.json(result.data);
-  } catch (err) {
-    res.status(500).json({ message: "Auth service not reachable", error: err.message });
-  }
+app.use((req, res, next) => {
+  console.log("⛔️ Unmatched request in Gateway:", req.method, req.originalUrl);
+  res.status(404).send("Gateway did not match any route");
 });
+
 
 // Start server
 const PORT = process.env.GATEWAY_PORT || 8080;

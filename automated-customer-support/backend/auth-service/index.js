@@ -13,30 +13,20 @@ const swaggerDocument = YAML.load("./docs/swagger.yaml");
 
 const app = express();
 
-// Middleware
 app.use(helmet());
-app.use(cors({
-  origin: "http://localhost:3000",
-  credentials: true,
-}));
+app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// Health route — safe to expose always
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
-});
+app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));
 
-// Log all incoming requests
 app.use((req, res, next) => {
   console.log("📥 Auth Service received:", req.method, req.originalUrl);
   next();
 });
 
-// ✅ Server Port
-const PORT = process.env.AUTH_PORT || process.env.PORT || 5000;
+const PORT = process.env.AUTH_PORT || 5000;
 
-// Connect to DB and only then mount routes + start server
 sequelize.authenticate()
   .then(() => {
     console.log("✅ Connected to PostgreSQL");
@@ -44,18 +34,24 @@ sequelize.authenticate()
   })
   .then(() => {
     console.log("🛠️ Synced models with DB");
-
-    // ✅ Mount routes after DB is ready
-    app.use("/", authRoutes);
-    app.use("/api/users", userRoutes);
+    app.use("/", authRoutes);       // handles /signup, /login, etc.
+    console.log("📦 Mounting userRoutes at /users");
+    app.use("/users", userRoutes);    
     app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-    // ✅ Start the server
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 Auth Service running on http://localhost:${PORT}`);
-      console.log(`📚 Swagger Docs at http://localhost:${PORT}/api-docs`);
+    app.get("/debug-direct", (req, res) => {
+  res.json({ message: "✅ Reached /debug-direct route in auth-service" });
+});
+
+    // ❌ 404 fallback
+    app.use((req, res) => {
+      console.log("🛑 Route reached but not matched by any handler");
+      res.status(404).json({ message: "Route not handled" });
     });
+
+    app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Auth Service running at http://localhost:${PORT}`);
+});
+
   })
-  .catch((err) => {
-    console.error("❌ DB error:", err);
-  });
+  .catch((err) => console.error("❌ DB error:", err));
