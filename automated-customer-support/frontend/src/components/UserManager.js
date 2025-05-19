@@ -48,7 +48,7 @@ export default function UserManager() {
   const handleCreate = async () => {
     if (!newUser.email || !newUser.password) return alert("Fill in all fields.");
     try {
-      await api.post("/auth/signup", newUser);
+      await api.post("/signup", newUser);
       setNewUser({ email: "", password: "", role: "client" });
       fetchUsers();
     } catch {

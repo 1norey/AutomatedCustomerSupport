@@ -25,8 +25,25 @@ app.use((req, res, next) => {
   next();
 });
 
+//  Mount routers OUTSIDE the DB .then() block:
+app.use("/", authRoutes);       // handles /signup, /login, etc.
+console.log("📦 Mounting userRoutes at /users");
+app.use("/users", userRoutes);    
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+app.get("/debug-direct", (req, res) => {
+  res.json({ message: "✅ Reached /debug-direct route in auth-service" });
+});
+
+//  404 fallback (must be last)
+app.use((req, res) => {
+  console.log("🛑 Route reached but not matched by any handler");
+  res.status(404).json({ message: "Route not handled" });
+});
+
 const PORT = process.env.AUTH_PORT || 5000;
 
+// Only start the server after DB is connected
 sequelize.authenticate()
   .then(() => {
     console.log("✅ Connected to PostgreSQL");
@@ -34,24 +51,8 @@ sequelize.authenticate()
   })
   .then(() => {
     console.log("🛠️ Synced models with DB");
-    app.use("/", authRoutes);       // handles /signup, /login, etc.
-    console.log("📦 Mounting userRoutes at /users");
-    app.use("/users", userRoutes);    
-    app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
-    app.get("/debug-direct", (req, res) => {
-  res.json({ message: "✅ Reached /debug-direct route in auth-service" });
-});
-
-    // ❌ 404 fallback
-    app.use((req, res) => {
-      console.log("🛑 Route reached but not matched by any handler");
-      res.status(404).json({ message: "Route not handled" });
-    });
-
     app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Auth Service running at http://localhost:${PORT}`);
-});
-
+      console.log(`🚀 Auth Service running at http://localhost:${PORT}`);
+    });
   })
   .catch((err) => console.error("❌ DB error:", err));

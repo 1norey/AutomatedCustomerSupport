@@ -59,10 +59,6 @@ router.post("/verify-token", (req, res) => {
   }
 });
 
-// ✅ FINAL fallback route – must be very last
-router.use((req, res) => {
-  console.log("🛑 Route reached but not matched by any handler");
-  res.status(404).json({ message: "Route not handled" });
-});
+
 
 module.exports = router;
