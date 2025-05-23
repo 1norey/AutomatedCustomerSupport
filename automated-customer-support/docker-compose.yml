@@ -114,6 +114,9 @@ services:
       - REDIS_URL=redis://redis:6379
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - FREE_QUOTA_LIMIT=50000
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+
     depends_on:
       mongo:
         condition: service_healthy

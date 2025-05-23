@@ -56,16 +56,15 @@ app.use("/api/ai", createProxyMiddleware({
   }
 }));
 
-
-
-
-
-
 // Tickets
-app.use("/api/tickets", createProxyMiddleware({
-  target: "http://ticket-service:5001",
-  changeOrigin: true,
-}));
+app.use(
+  "/api/tickets",
+  createProxyMiddleware({
+    target: "http://ticket-service:5001",
+    changeOrigin: true,
+     pathRewrite: { "^/api/tickets": "/api/tickets" }
+  })
+);
 
 
 // Health aggregator

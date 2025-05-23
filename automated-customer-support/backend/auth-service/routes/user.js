@@ -18,10 +18,8 @@ router.get("/test", (req, res) => {
   res.json({ message: "✅ /users/test reached (no auth)" });
 });
 
-// Remove authenticate here to test route
-router.get("/", (req, res) => {
-  res.json({ message: "✅ /users root GET works (no auth)", users: [] });
-});
+router.get("/", authenticate, getUsers); // this uses your real getUsers controller
+
 
 router.put("/:id", authenticate, updateUserRole);
 router.delete("/:id", authenticate, deleteUser);

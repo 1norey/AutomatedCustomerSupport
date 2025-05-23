@@ -51,6 +51,13 @@ const connectDB = async () => {
 connectDB().then(() => {
   // Register routes
   app.use("/api/ai", require("./routes/ai")(redisClient));
+
+  app.use((req, res, next) => {
+  console.log(`[Ticket-Service] Incoming:`, req.method, req.originalUrl);
+  next();
+});
+
+
   app.use("/api/tickets", require("./routes/tickets"));
 
   // Health Check route

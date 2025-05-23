@@ -7,10 +7,19 @@ const User = require("../models/User");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../utils/emailService");
 
 const generateAccessToken = (user) =>
-  jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "15m" });
+  jwt.sign(
+    { id: user.id, role: user.role, email: user.email }, // 👈 ADD EMAIL
+    process.env.JWT_SECRET,
+    { expiresIn: "15m" }
+  );
 
 const generateRefreshToken = (user) =>
-  jwt.sign({ id: user.id, role: user.role }, process.env.JWT_REFRESH_SECRET, { expiresIn: "7d" });
+  jwt.sign(
+    { id: user.id, role: user.role, email: user.email }, // 👈 ADD EMAIL
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: "7d" }
+  );
+
 
 exports.signup = async (req, res) => {
   console.log("➡️ Signup controller hit");
