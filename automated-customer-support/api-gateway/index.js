@@ -62,7 +62,7 @@ app.use(
   createProxyMiddleware({
     target: "http://ticket-service:5001",
     changeOrigin: true,
-     pathRewrite: { "^/api/tickets": "/api/tickets" }
+    // Removed pathRewrite to forward the path as-is
   })
 );
 

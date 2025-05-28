@@ -40,7 +40,7 @@ export default function TicketManager() {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this ticket?")) return;
     try {
-      await ticketApi.delete(`/tickets/${id}`);
+        await ticketApi.delete(`/${id}`);
       setTickets((prev) => prev.filter((t) => t._id !== id));
     } catch {
       alert("Failed to delete ticket");

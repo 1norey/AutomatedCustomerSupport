@@ -58,7 +58,7 @@ connectDB().then(() => {
 });
 
 
-  app.use("/api/tickets", require("./routes/tickets"));
+  app.use("/", require("./routes/tickets"));
 
   // Health Check route
   app.get("/health", async (req, res) => {

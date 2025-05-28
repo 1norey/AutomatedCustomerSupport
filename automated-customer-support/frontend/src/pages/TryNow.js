@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "../api/aiApi";
 import ticketApi from "../api/ticketApi";
-import { FaRobot, FaSpinner, FaRegEnvelope } from "react-icons/fa";
+import { FaRobot, FaSpinner, FaRegEnvelope, FaHome } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
 export default function TryNow() {
   const [url, setUrl] = useState("");
@@ -19,6 +20,8 @@ export default function TryNow() {
   const [ticketMessage, setTicketMessage] = useState("");
   const [ticketSubmitted, setTicketSubmitted] = useState(false);
   const bottomRef = useRef(null);
+
+  const navigate = useNavigate();
 
   const user = (() => {
     try {
@@ -128,6 +131,15 @@ export default function TryNow() {
 
   return (
     <div className="bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] min-h-screen text-white p-4 md:p-8 flex flex-col items-center">
+      {/* HOME BUTTON */}
+      <button
+        onClick={() => navigate("/")}
+        className="fixed top-6 right-6 z-50 bg-[#A8DCAB] text-black font-bold px-4 py-2 rounded-full shadow hover:bg-[#519755] flex items-center gap-2 transition-all"
+      >
+        <FaHome className="mr-2" />
+        Home
+      </button>
+
       <div className="w-full max-w-2xl">
         <div className="flex items-center justify-center gap-3 mb-6">
           <FaRobot className="text-3xl text-[#A8DCAB]" />
