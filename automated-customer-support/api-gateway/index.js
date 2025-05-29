@@ -62,9 +62,10 @@ app.use(
   createProxyMiddleware({
     target: "http://ticket-service:5001",
     changeOrigin: true,
-    // Removed pathRewrite to forward the path as-is
+    pathRewrite: { "^/api/tickets": "" } // <--- this is essential!
   })
 );
+
 
 
 // Health aggregator

@@ -58,6 +58,8 @@ exports.getTickets = async (req, res) => {
 };
 
 // Agent/Admin reply to ticket + send Outlook email
+
+
 exports.replyToTicket = async (req, res) => {
   try {
     const { id } = req.params;

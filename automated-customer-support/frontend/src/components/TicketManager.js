@@ -28,7 +28,7 @@ export default function TicketManager() {
   const handleReply = async (id) => {
     if (!replyText[id]) return;
     try {
-      await ticketApi.patch(`/tickets/${id}/reply`, { answer: replyText[id] });
+      await ticketApi.patch(`/${id}/reply`, { answer: replyText[id] });
       setReplyText((prev) => ({ ...prev, [id]: "" }));
       fetchTickets();
       alert("Reply sent to user by email!");
