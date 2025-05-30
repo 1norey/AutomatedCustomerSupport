@@ -1,17 +1,16 @@
 const nodemailer = require("nodemailer");
 
+
 const transporter = nodemailer.createTransport({
-  host: "smtp.office365.com",
-  port: 587,
-  secure: false, // TLS is used instead of SSL
+  host: process.env.EMAIL_HOST || "smtp.ethereal.email",
+  port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 587,
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  tls: {
-    ciphers: "SSLv3", // Ensures compatibility
-  },
 });
+
 
 exports.sendVerificationEmail = async (to, token) => {
   const verificationLink = `http://localhost:8080/api/auth/verify-email/${token}`;

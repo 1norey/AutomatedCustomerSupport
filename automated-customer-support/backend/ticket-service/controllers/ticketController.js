@@ -1,29 +1,27 @@
 const Ticket = require("../models/Ticket");
 const nodemailer = require("nodemailer");
 
-// Nodemailer transporter using Outlook/Office365 SMTP
 const transporter = nodemailer.createTransport({
-  host: "smtp.office365.com",
-  port: 587,
-  secure: false, // Always false for 587 (TLS)
+  host: process.env.SMTP_HOST,         // smtp.ethereal.email
+  port: process.env.SMTP_PORT,         // 587
+  secure: false,                       // Always false for 587/TLS
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-  tls: {
-    ciphers: 'SSLv3'
-  }
 });
 
-// Helper function for sending email via Outlook
 async function sendEmail(to, subject, text) {
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from: process.env.SMTP_USER,
     to,
     subject,
     text,
   });
+  // This is only available for Ethereal!
+  console.log('🔗 Ethereal email preview:', nodemailer.getTestMessageUrl(info));
 }
+
 
 // Create ticket
 exports.createTicket = async (req, res) => {
@@ -61,30 +59,49 @@ exports.getTickets = async (req, res) => {
 
 
 exports.replyToTicket = async (req, res) => {
+  console.log("[Ticket-Service] PATCH /:id/reply body:", req.body);
   try {
     const { id } = req.params;
     const { answer } = req.body;
+    console.log("[Ticket-Service] id:", id, "answer:", answer);
+
     const ticket = await Ticket.findById(id);
-    if (!ticket) return res.status(404).json({ message: "Ticket not found" });
-    if (ticket.status === "answered") return res.status(400).json({ message: "Already answered" });
+    if (!ticket) {
+      console.log("[Ticket-Service] Ticket not found:", id);
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+    if (ticket.status === "answered") {
+      console.log("[Ticket-Service] Ticket already answered:", id);
+      return res.status(400).json({ message: "Already answered" });
+    }
 
     ticket.answer = answer;
     ticket.answeredBy = req.user.email || req.user.id;
     ticket.status = "answered";
     await ticket.save();
 
-    // Send answer to user's email via Outlook
-    await sendEmail(
-      ticket.email,
-      "Your Support Ticket Has Been Answered",
-      `Hello,\n\nYour question:\n${ticket.message}\n\nAgent reply:\n${answer}\n\nBest regards,\nSupport Team`
-    );
+    // Send answer to user's email via Outlook/Ethereal
+    try {
+      await sendEmail(
+        ticket.email,
+        "Your Support Ticket Has Been Answered",
+        `Hello,\n\nYour question:\n${ticket.message}\n\nAgent reply:\n${answer}\n\nBest regards,\nSupport Team`
+      );
+      console.log("[Ticket-Service] Email sent to:", ticket.email);
+    } catch (emailErr) {
+      console.error("[Ticket-Service] Failed to send email:", emailErr);
+      // You might want to still respond with success for demo purposes
+      return res.status(500).json({ message: "Failed to send email", error: emailErr.message });
+    }
 
     res.json(ticket);
+    console.log("[Ticket-Service] Reply completed for ticket:", id);
   } catch (err) {
+    console.error("[Ticket-Service] Failed to reply:", err);
     res.status(500).json({ message: "Failed to reply", error: err.message });
   }
 };
+
 
 // Update ticket (e.g., reopen)
 exports.updateTicket = async (req, res) => {
